@@ -1,4 +1,6 @@
 .DS_Store
+.serena/
+AGENTS.md
 node_modules/*
 yarn.lock
 tesseract.min.js

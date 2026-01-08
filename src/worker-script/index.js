@@ -18,6 +18,75 @@ const defaultOutput = require('./constants/defaultOutput');
 const { log, setLogging } = require('../utils/log');
 const PSM = require('../constants/PSM');
 
+const normalizeImageData = (input) => {
+  if (!input) return input;
+  if (input instanceof Uint8Array) return input;
+  const objectToUint8 = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+    const keys = Object.keys(obj);
+    if (keys.length === 0) return null;
+    let maxIndex = -1;
+    const indices = [];
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      if (!/^\d+$/.test(key)) continue;
+      const idx = Number(key);
+      if (Number.isNaN(idx)) continue;
+      indices.push(idx);
+      if (idx > maxIndex) maxIndex = idx;
+    }
+    if (indices.length === 0) return null;
+    const len = typeof obj.length === 'number' && obj.length > maxIndex
+      ? obj.length
+      : maxIndex + 1;
+    const arr = new Uint8Array(len);
+    for (let i = 0; i < indices.length; i += 1) {
+      const idx = indices[i];
+      arr[idx] = obj[String(idx)] & 0xff;
+    }
+    return arr;
+  };
+  if (typeof ArrayBuffer !== 'undefined') {
+    if (input instanceof ArrayBuffer) return new Uint8Array(input);
+    if (typeof ArrayBuffer.isView === 'function' && ArrayBuffer.isView(input)) {
+      const buffer = input.buffer;
+      if (buffer && typeof buffer.slice === 'function') {
+        return new Uint8Array(buffer.slice(input.byteOffset, input.byteOffset + input.byteLength));
+      }
+      return new Uint8Array(buffer);
+    }
+  }
+  if (Array.isArray(input)) return Uint8Array.from(input);
+  if (input && Array.isArray(input.data)) return Uint8Array.from(input.data);
+  if (input && input.data) {
+    const inner = input.data;
+    if (Array.isArray(inner)) return Uint8Array.from(inner);
+    if (inner && Array.isArray(inner.data)) return Uint8Array.from(inner.data);
+    const innerObj = objectToUint8(inner);
+    if (innerObj) return innerObj;
+    if (typeof ArrayBuffer !== 'undefined') {
+      if (inner instanceof ArrayBuffer) return new Uint8Array(inner);
+      if (typeof ArrayBuffer.isView === 'function' && ArrayBuffer.isView(inner)) {
+        const buffer = inner.buffer;
+        if (buffer && typeof buffer.slice === 'function') {
+          return new Uint8Array(buffer.slice(inner.byteOffset, inner.byteOffset + inner.byteLength));
+        }
+        return new Uint8Array(buffer);
+      }
+    }
+  }
+  const obj = objectToUint8(input);
+  if (obj) return obj;
+  if (typeof input.length === 'number') {
+    const arr = new Uint8Array(input.length);
+    for (let i = 0; i < input.length; i += 1) {
+      arr[i] = input[i] & 0xff;
+    }
+    return arr;
+  }
+  return input;
+};
+
 /*
  * Tesseract Module returned by TesseractCore.
  */
@@ -124,10 +193,10 @@ res) => {
       if (typeof _lang === 'string') {
         let path = null;
 
-        // If `langPath` if not explicitly set by the user, the jsdelivr CDN is used.
+        // If `langPath` if not explicitly set by the user, the jsdmirror CDN is used (mirror of jsdelivr).
         // Data supporting the Legacy model is only included if `lstmOnly` is not true.
         // This saves a significant amount of data for the majority of users that use LSTM only.
-        const langPathDownload = langPath || (lstmOnly ? `https://cdn.jsdelivr.net/npm/@tesseract.js-data/${lang}/4.0.0_best_int` : `https://cdn.jsdelivr.net/npm/@tesseract.js-data/${lang}/4.0.0`);
+        const langPathDownload = langPath || (lstmOnly ? `https://cdn.jsdmirror.com/npm/@tesseract.js-data/${lang}/4.0.0_best_int` : `https://cdn.jsdmirror.com/npm/@tesseract.js-data/${lang}/4.0.0`);
 
         // For Node.js, langPath may be a URL or local file path
         // The is-url package is used to tell the difference
@@ -139,7 +208,9 @@ res) => {
         // langPathDownload is a URL, fetch from server
         if (path !== null) {
           const fetchUrl = `${path}/${lang}.traineddata${gzip ? '.gz' : ''}`;
-          const resp = await (env === 'webworker' ? fetch : adapter.fetch)(fetchUrl);
+          const useAdapterFetch = !!(adapter && typeof adapter.fetch === 'function' && adapter.fetch.__tessjs_override);
+          const fetchImpl = (env === 'webworker' && !useAdapterFetch) ? fetch : adapter.fetch;
+          const resp = await fetchImpl(fetchUrl);
           if (!resp.ok) {
             throw Error(`Network error while fetching ${fetchUrl}. Response code: ${resp.status}`);
           }
@@ -346,6 +417,7 @@ const recognize = async ({
   },
 }, res) => {
   try {
+    const imageNormalized = normalizeImageData(image);
     const optionsTess = {};
     if (typeof options === 'object' && Object.keys(options).length > 0) {
       // The options provided by users contain a mix of options for Tesseract.js
@@ -384,7 +456,7 @@ const recognize = async ({
         api.SetVariable('tessedit_pageseg_mode', String(PSM.AUTO));
       }
 
-      setImage(TessModule, api, image);
+      setImage(TessModule, api, imageNormalized);
       api.FindLines();
 
       // The function GetAngle will be replaced with GetGradient in 4.0.4,
@@ -400,17 +472,17 @@ const recognize = async ({
       // Small angles (<0.005 radians/~0.3 degrees) are ignored to save on runtime
       if (Math.abs(rotateRadiansCalc) >= 0.005) {
         rotateRadiansFinal = rotateRadiansCalc;
-        setImage(TessModule, api, image, rotateRadiansFinal);
+        setImage(TessModule, api, imageNormalized, rotateRadiansFinal);
       } else {
         // Image needs to be reset if run with different PSM setting earlier
         if (psmEdit) {
-          setImage(TessModule, api, image);
+          setImage(TessModule, api, imageNormalized);
         }
         rotateRadiansFinal = 0;
       }
     } else {
       rotateRadiansFinal = options.rotateRadians || 0;
-      setImage(TessModule, api, image, rotateRadiansFinal);
+      setImage(TessModule, api, imageNormalized, rotateRadiansFinal);
     }
 
     const rec = options.rectangle;
@@ -445,7 +517,8 @@ const recognize = async ({
 
 const detect = async ({ payload: { image } }, res) => {
   try {
-    setImage(TessModule, api, image);
+    const imageNormalized = normalizeImageData(image);
+    setImage(TessModule, api, imageNormalized);
     const results = new TessModule.OSResults();
 
     if (!api.DetectOS(results)) {
@@ -498,6 +571,7 @@ const terminate = async (_, res) => {
  * @param {function} send - trigger job to work
  */
 exports.dispatchHandlers = (packet, send) => {
+  if (!packet || typeof packet !== 'object') return;
   const res = (status, data) => {
     // Return only the necessary info to avoid sending unnecessarily large messages
     const packetRes = {
@@ -517,7 +591,7 @@ exports.dispatchHandlers = (packet, send) => {
 
   latestJob = res;
 
-  ({
+  const handlers = ({
     load,
     FS,
     loadLanguage,
@@ -526,7 +600,11 @@ exports.dispatchHandlers = (packet, send) => {
     recognize,
     detect,
     terminate,
-  })[packet.action](packet, res)
+  });
+  const handler = handlers[packet.action];
+  if (typeof handler !== 'function') return;
+
+  handler(packet, res)
     .catch((err) => res.reject(err.toString()));
 };
 

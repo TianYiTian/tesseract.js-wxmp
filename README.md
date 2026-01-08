@@ -1,4 +1,20 @@
 <p align="center">
+## 微信小程序适配说明（本仓库）
+
+本仓库是 **为了在微信小程序内使用 tesseract.js** 的适配版本，核心目标是让 LSTM core 能在小程序 worker 中稳定运行（使用 WXWebAssembly）。
+
+关键差异：
+- 仅支持 **LSTM core**（OEM.LSTM_ONLY）
+- 依赖 **微信基础库 >= 2.14.0**（仅使用 `tesseract-core-lstm.wasm.br`，不再保留 `.wasm`）
+- worker 使用 `wx.createWorker`，消息通道用 `postMessage/onMessage`
+- 默认语言包 CDN 使用 **jsdmirror**（jsdelivr 镜像）
+- 资源建议放在小程序包内（如 `/static/ocr/core`、`/static/ocr/worker`）
+- worker 侧 `tesseract-core-lstm.js` 可直接从本仓库 `ocr/core/tesseract-core-lstm.js` 拷贝
+
+相关文档：<a href="./docs/wechat-miniapp-setup.md">接入指南</a> | <a href="./docs/wechat-miniapp-changelog.md">变更记录</a>
+
+---
+
   <a href="https://tesseract.projectnaptha.com/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./docs/images/tesseract_dark.png">

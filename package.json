@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node scripts/server.js",
     "build": "rimraf dist && webpack --config scripts/webpack.config.prod.js && rollup -c scripts/rollup.esm.mjs",
+    "build:miniapp-worker": "webpack --config scripts/webpack.config.miniapp-worker.js",
+    "build:miniapp-main": "webpack --config scripts/webpack.config.miniapp-main.js",
     "profile:tesseract": "webpack-bundle-analyzer dist/tesseract-stats.json",
     "profile:worker": "webpack-bundle-analyzer dist/worker-stats.json",
     "prepublishOnly": "npm run build",
