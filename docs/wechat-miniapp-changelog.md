@@ -52,6 +52,19 @@ static/ocr/
 
 说明：core 目录不需要 `tesseract-core-lstm.js`，只需 `.wasm.br`。
 
+## SIMD 版本支持
+
+微信小程序也可使用 SIMD-LSTM 版本以获得更好的性能，但需要注意：
+
+- `tesseract-core-simd-lstm.js` 内部硬编码了文件名 `tesseract-core-simd-lstm.wasm`
+- 小程序适配版固定查找 `tesseract-core-lstm.wasm.br`
+- **解决方案**：将 SIMD 版本文件重命名为 LSTM 版本文件名
+  - `tesseract-core-simd-lstm.js` → `tesseract-core-lstm.js`
+  - `tesseract-core-simd-lstm.wasm.br` → `tesseract-core-lstm.wasm.br`
+- 同样适用于 relaxed-SIMD 版本
+
+详见 [接入指南 - SIMD 版本使用说明](./wechat-miniapp-setup.md#simd-版本使用说明性能优化)
+
 ## 备注
 
 - 本仓库只关注微信小程序场景

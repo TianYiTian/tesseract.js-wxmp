@@ -10,6 +10,7 @@
 - 默认语言包 CDN 使用 **jsdmirror**（jsdelivr 镜像）
 - 资源建议放在小程序包内（如 `/static/ocr/core`、`/static/ocr/worker`）
 - worker 侧 `tesseract-core-lstm.js` 可直接从本仓库 `ocr/core/tesseract-core-lstm.js` 拷贝
+- **SIMD 支持**：微信小程序也可使用 SIMD-LSTM 版本（性能更好），但因内部文件名硬编码，需将 `tesseract-core-simd-lstm.wasm.br` 重命名为 `tesseract-core-lstm.wasm.br`，并将 `tesseract-core-simd-lstm.js` 重命名为 `tesseract-core-lstm.js`
 
 相关文档：<a href="./docs/wechat-miniapp-setup.md">接入指南</a> | <a href="./docs/wechat-miniapp-changelog.md">变更记录</a>
 

@@ -32,6 +32,7 @@ static/ocr/
 - `.wasm` 已移除，仅保留 `.wasm.br`
 - `worker/tesseract-core-lstm.js` 用于 worker 侧 `require`，不能放 `.wasm`
 - `worker/tesseract-core-lstm.js` 可直接从本仓库 `ocr/core/tesseract-core-lstm.js` 拷贝
+- **SIMD 优化**：如需使用 SIMD-LSTM 版本（性能更好），可将 `tesseract-core-simd-lstm.wasm.br` 重命名为 `tesseract-core-lstm.wasm.br`，并将 `tesseract-core-simd-lstm.js` 重命名为 `tesseract-core-lstm.js`（因内部文件名硬编码）
 
 ## 构建 tesseract.js 适配包
 
@@ -95,6 +96,39 @@ const worker = await createWorker('chi_sim+eng', OEM.LSTM_ONLY, {
 ```
 
 请确保该文件存在于小程序包内对应位置。
+
+## SIMD 版本使用说明（性能优化）
+
+微信小程序也支持使用 SIMD-LSTM 版本以获得更好的性能，但由于 `tesseract-core-simd-lstm.js` 内部硬编码了文件名 `tesseract-core-simd-lstm.wasm`，而小程序适配版固定查找 `tesseract-core-lstm.wasm.br`，因此需要进行文件重命名：
+
+### 使用步骤
+
+1. 从 `node_modules/tesseract.js-core/` 获取 SIMD 版本文件：
+   - `tesseract-core-simd-lstm.js`
+   - `tesseract-core-simd-lstm.wasm`（或 `.wasm.br`）
+
+2. 重命名文件：
+   ```bash
+   # 重命名 JS 文件
+   cp tesseract-core-simd-lstm.js tesseract-core-lstm.js
+
+   # 重命名 WASM 文件
+   cp tesseract-core-simd-lstm.wasm.br tesseract-core-lstm.wasm.br
+   ```
+
+3. 将重命名后的文件放置到小程序对应位置：
+   - `tesseract-core-lstm.js` → `/static/ocr/worker/tesseract-core-lstm.js`
+   - `tesseract-core-lstm.wasm.br` → `/static/ocr/core/tesseract-core-lstm.wasm.br`
+
+### 性能提升
+
+使用 SIMD 版本可以显著提升识别速度（通常快 2-3 倍），建议在支持 SIMD 的设备上使用。
+
+### 注意事项
+
+- 确保微信小程序运行环境支持 SIMD 指令集
+- 文件体积略大于普通 LSTM 版本
+- 如需使用 relaxed-SIMD 版本，同样需要将 `tesseract-core-relaxedsimd-lstm.*` 重命名为 `tesseract-core-lstm.*`
 
 ## 缓存说明
 
